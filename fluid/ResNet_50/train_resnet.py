@@ -21,7 +21,7 @@ import numpy as np
 from models import resnet
 import paddle
 import paddle.fluid as fluid
-import paddle.dataset.flowers as flowers
+# import paddle.dataset.flowers as flowers
 import paddle.fluid.profiler as profiler
 
 fluid.default_startup_program().random_seed = 111
@@ -96,6 +96,15 @@ def train_parallel_exe(args):
     class_dim = 1000
     image_shape = [3, 224, 224]
 
+    def fake_reader():
+        while True:
+            img = np.random.rand(3, 224, 224)
+            lab = np.random.randint(0, 999)
+            yield img, lab
+
+    def train():
+        return fake_reader
+
     image = fluid.layers.data(name='image', shape=image_shape, dtype='float32')
     label = fluid.layers.data(name='label', shape=[1], dtype='int64')
 
@@ -103,7 +112,7 @@ def train_parallel_exe(args):
     feeder = fluid.DataFeeder(place=place, feed_list=[image, label])
     train_reader = feeder.decorate_reader(
         paddle.batch(
-            flowers.train(), batch_size=args.batch_size_per_gpu),
+            train(), batch_size=args.batch_size_per_gpu),
         multi_devices=True)
 
     train_reader_iter = train_reader()
@@ -134,8 +143,8 @@ def train_parallel_exe(args):
     # warm up
     for batch_id in xrange(args.warmup):
         exe.run([],
-                feed=feed_data if args.fix_data_in_gpu else
-                feeder.feed(train_reader_iter.next()))
+                feed=feed_data
+                if args.fix_data_in_gpu else train_reader_iter.next())
 
     time_record = []
     train_start = time.time()
@@ -145,14 +154,14 @@ def train_parallel_exe(args):
             with profiler.profiler('All', 'total',
                                    '/tmp/profile_parallel_exe') as prof:
                 exe.run([],
-                        feed=feed_data if args.fix_data_in_gpu else
-                        feeder.feed(train_reader_iter.next()))
+                        feed=feed_data
+                        if args.fix_data_in_gpu else train_reader_iter.next())
             continue
 
         cost_val = exe.run([avg_cost.name]
                            if (batch_id + 1) % args.display_step == 0 else [],
                            feed=feed_data if args.fix_data_in_gpu else
-                           feeder.feed(train_reader_iter.next()))
+                           train_reader_iter.next())
 
         img_count += args.batch_size
 
