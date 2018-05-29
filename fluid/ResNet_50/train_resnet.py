@@ -132,13 +132,20 @@ def train_parallel_exe(args):
                  "./flowers_64_6.recordio",
                  "./flowers_64_7.recordio"]
     """
-    file_list = ["./flowers_1_0.recordio"]
+    file_list = ["./flowers_1_0.recordio",
+                 "./flowers_1_1.recordio",
+                 "./flowers_1_2.recordio",
+                 "./flowers_1_3.recordio",
+                 "./flowers_1_4.recordio",
+                 "./flowers_1_5.recordio",
+                 "./flowers_1_6.recordio",
+                 "./flowers_1_7.recordio"]
     data_file = fluid.layers.io.open_files(
         filenames=file_list,
         shapes=[[-1] + image_shape, [-1, 1]],
         lod_levels=[0, 0],
         dtypes=['uint8', 'int64'],
-        thread_num=1,
+        thread_num=4,
         pass_num=10)
     data_file = fluid.layers.io.shuffle(data_file, buffer_size=128)
     data_file = fluid.layers.io.batch(data_file, batch_size=args.batch_size_per_gpu)
