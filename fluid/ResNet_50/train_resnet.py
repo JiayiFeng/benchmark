@@ -30,8 +30,8 @@ fluid.default_startup_program().random_seed = 111
 
 def parse_args():
     parser = argparse.ArgumentParser('ResNet-50 parallel profile.')
-    parser.add_argument('--batch_size', type=int, default=12, help='batch size')
-    parser.add_argument('--batch_size_per_gpu', type=int, default=12, help='')
+    parser.add_argument('--batch_size', type=int, default=64, help='batch size')
+    parser.add_argument('--batch_size_per_gpu', type=int, default=64, help='')
     parser.add_argument(
         '--use_mem_opt',
         type=distutils.util.strtobool,
@@ -138,10 +138,10 @@ def train_parallel_exe(args):
         shapes=[[-1] + image_shape, [-1, 1]],
         lod_levels=[0, 0],
         dtypes=['uint8', 'int64'],
-        thread_num=4,
+        thread_num=1,
         pass_num=10)
     data_file = fluid.layers.io.shuffle(data_file, buffer_size=128)
-    data_file = fluid.layers.io.batch(data_file, batch_size=64)
+    data_file = fluid.layers.io.batch(data_file, batch_size=args.batch_size_per_gpu)
     """
     preprocessor = fluid.layers.io.Preprocessor(reader=data_file)
     with preprocessor.block():
