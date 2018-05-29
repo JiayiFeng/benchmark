@@ -17,6 +17,7 @@ import time
 import argparse
 import distutils.util
 import numpy as np
+import time
 
 from models import resnet
 import paddle
@@ -104,7 +105,7 @@ def train_parallel_exe(args):
 
     def train():
         return fake_reader
-
+    """
     image = fluid.layers.data(name='image', shape=image_shape, dtype='float32')
     label = fluid.layers.data(name='label', shape=[1], dtype='int64')
 
@@ -119,6 +120,38 @@ def train_parallel_exe(args):
     if args.fix_data_in_gpu:
         data = train_reader_iter.next()
         feed_data = data
+    """
+
+    """
+    file_list = ["./flowers_64_0.recordio",
+                 "./flowers_64_1.recordio",
+                 "./flowers_64_2.recordio",
+                 "./flowers_64_3.recordio",
+                 "./flowers_64_4.recordio",
+                 "./flowers_64_5.recordio",
+                 "./flowers_64_6.recordio",
+                 "./flowers_64_7.recordio"]
+    """
+    file_list = ["./flowers_1_0.recordio"]
+    data_file = fluid.layers.io.open_files(
+        filenames=file_list,
+        shapes=[[-1] + image_shape, [-1, 1]],
+        lod_levels=[0, 0],
+        dtypes=['uint8', 'int64'],
+        thread_num=4,
+        pass_num=10)
+    data_file = fluid.layers.io.shuffle(data_file, buffer_size=128)
+    data_file = fluid.layers.io.batch(data_file, batch_size=64)
+    """
+    preprocessor = fluid.layers.io.Preprocessor(reader=data_file)
+    with preprocessor.block():
+        image, label = preprocessor.inputs()
+        image = fluid.layers.random_crop(input=image, shape=[3,200,200])
+        preprocessor.outputs(image, label)
+    """
+    data_file = fluid.layers.io.double_buffer(data_file)
+    image, label = fluid.layers.io.read_file(data_file)
+    image = fluid.layers.cast(image, "float32")
 
     prediction, avg_cost = net_conf(image, label, class_dim)
 
@@ -142,14 +175,14 @@ def train_parallel_exe(args):
 
     # warm up
     for batch_id in xrange(args.warmup):
-        exe.run([],
-                feed=feed_data
-                if args.fix_data_in_gpu else train_reader_iter.next())
+        exe.run([])
 
     time_record = []
     train_start = time.time()
     img_count = 0
+    time_cost = 0
     for batch_id in xrange(args.number_iteration):
+        """
         if args.do_profile and batch_id >= 5 and batch_id < 8:
             with profiler.profiler('All', 'total',
                                    '/tmp/profile_parallel_exe') as prof:
@@ -157,11 +190,11 @@ def train_parallel_exe(args):
                         feed=feed_data
                         if args.fix_data_in_gpu else train_reader_iter.next())
             continue
-
-        cost_val = exe.run([avg_cost.name]
-                           if (batch_id + 1) % args.display_step == 0 else [],
-                           feed=feed_data if args.fix_data_in_gpu else
-                           train_reader_iter.next())
+        """
+        begin_time = time.time()
+        cost_val = exe.run(fetch_list=[avg_cost.name]
+                           if (batch_id + 1) % args.display_step == 0 else [])
+        time_cost += time.time() - begin_time
 
         img_count += args.batch_size
 
