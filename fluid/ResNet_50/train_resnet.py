@@ -149,16 +149,8 @@ def train_parallel_exe(args):
         pass_num=10)
     data_file = fluid.layers.io.shuffle(data_file, buffer_size=128)
     data_file = fluid.layers.io.batch(data_file, batch_size=args.batch_size_per_gpu)
-    """
-    preprocessor = fluid.layers.io.Preprocessor(reader=data_file)
-    with preprocessor.block():
-        image, label = preprocessor.inputs()
-        image = fluid.layers.random_crop(input=image, shape=[3,200,200])
-        preprocessor.outputs(image, label)
-    """
     data_file = fluid.layers.io.double_buffer(data_file)
     image, label = fluid.layers.io.read_file(data_file)
-    image = fluid.layers.cast(image, "float32")
 
     prediction, avg_cost = net_conf(image, label, class_dim)
 
